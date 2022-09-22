@@ -3,6 +3,7 @@ from flask_socketio import SocketIO, join_room, leave_room, emit, send;
 import eventlet;
 import random;
 import json;
+from random_word import Wordnik
 from flask_cors import CORS;
 import uuid
 # this instance is our WSGI app
@@ -125,26 +126,37 @@ async def createQuiz(operation):
 
 @socketio.on('connect')
 def connect():
-   print('WTF you have connected ' + str(request.sid))
+   print('HI you have connected with sid ' + str(request.sid))
 
 @socketio.on('create_room')
 def create_room(data):
     print(data)
-    # username = data['username']
-    room = uuid.uuid4()
+    # print(data)
+    wordnik = Wordnik()
+    words = wordnik.get_random_words(hasDictionaryDef="true", maxLength=5,limit=3 )
+    print(words)
+    user = data['username']
+    room = ''.join(words)
+    print(room)
+    # shortenedRoom = room[:6]
+    # print(shortenedRoom)
     join_room(room)
-    send( + 'has entered the room. Room code is ' + str(room),  to=room)
+    send(str(user) +' ' + str(room),  to=room)
 
-@socketio.on('')
+# @socketio.on('')
 
 @socketio.on('leave')
 def on_leave(data):
     username = data['username']
     room = data['room']
+    print(str(username) + ' is leaving room ' + str(room))
     leave_room(room)
-    send(username + ' has left the room.', to=room)
+    send(str(username) + ' has left the room.', to=room)
 
-
+@socketio.on('submit_quiz')
+def submit_quiz(data):
+    print(data)
+    emit()
 @socketio.on('disconnect')
 def disconnect():
     print('Client disconnected')
