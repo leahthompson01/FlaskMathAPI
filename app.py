@@ -3,13 +3,19 @@ from flask_socketio import SocketIO, join_room, leave_room, emit, send;
 import eventlet;
 import random;
 import json;
+import flask
 from random_word import Wordnik
 from flask_cors import CORS;
-import uuid
+from flask_pymongo import PyMongo
+from dotenv import dotenv_values
+
+config = dotenv_values(".env")
 # this instance is our WSGI app
-app = Flask("__name__")
-app.config['SECRET_KEY'] = 'secret!'
+app = flask.Flask("__name__")
+app.config['MONGO_URI'] = config["DB_CONNECTION"]
 CORS(app)
+mongo = PyMongo(app)
+
 # wrapping our flask app in SocketIO
 socketio = SocketIO(app,async_mode='eventlet', logger=True, cors_allowed_origins='*')
 #make sure to use @ decorator in front
@@ -128,22 +134,30 @@ async def createQuiz(operation):
 def connect():
    print('HI you have connected with sid ' + str(request.sid))
 
+# print(type(mongo))
 @socketio.on('create_room')
 def create_room(data):
     print(data)
     # print(data)
     wordnik = Wordnik()
-    words = wordnik.get_random_words(hasDictionaryDef="true", maxLength=5,limit=3 )
+    words = wordnik.get_random_words(hasDictionaryDef="true", maxLength=8,limit=2 )
     print(words)
     user = data['username']
-    room = ''.join(words)
+    operation = data['operation']
+    room = '-'.join(words)
     print(room)
     # shortenedRoom = room[:6]
     # print(shortenedRoom)
     join_room(room)
-    send(str(user) +' ' + str(room),  to=room)
 
-# @socketio.on('')
+    # print(socketio.rooms.keys())
+    send(str(user) +' ' + str(room),  to=room)
+    mongo.db.Rooms.insert_one({'roomId':room, 'operation': operation, 'users': [{"username":user, "quizSubmitted":"false"} ]})
+
+# @socketio.on('join_existingroom')
+# def join_room(data):
+#     print("wow")
+
 
 @socketio.on('leave')
 def on_leave(data):
