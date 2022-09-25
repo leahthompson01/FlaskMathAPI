@@ -130,6 +130,16 @@ async def createQuiz(operation):
     return allQuestions
 
 
+@app.route("/joinquiz/<lobbycode>")
+def joinQuiz(lobbycode):
+    roomData = mongo.db.Rooms.find_one({'roomId': lobbycode})
+    # quiz = roomData['quiz']
+    return roomData['quiz']
+@app.route("/users/<lobbyCode>")
+def allusers(lobbyCode):
+    roomData = roomData = mongo.db.Rooms.find_one({'roomId': lobbyCode})
+    users = roomData['users']
+    return users
 @socketio.on('connect')
 def connect():
    print('HI you have connected with sid ' + str(request.sid))
@@ -137,26 +147,43 @@ def connect():
 # print(type(mongo))
 @socketio.on('create_room')
 def create_room(data):
-    print(data)
     # print(data)
     wordnik = Wordnik()
     words = wordnik.get_random_words(hasDictionaryDef="true", maxLength=8,limit=2 )
-    print(words)
+    # print(words)
     user = data['username']
     operation = data['operation']
     room = '-'.join(words)
-    print(room)
+    # print(room)
     # shortenedRoom = room[:6]
     # print(shortenedRoom)
     join_room(room)
-
-    # print(socketio.rooms.keys())
     send(str(user) +' ' + str(room),  to=room)
-    mongo.db.Rooms.insert_one({'roomId':room, 'operation': operation, 'users': [{"username":user, "quizSubmitted":"false"} ]})
+    mongo.db.Rooms.insert_one({'roomId':room, 'operation': operation, 'users': [{"username":user, "quizSubmitted":"false"} ], 'quiz': {}})
 
-# @socketio.on('join_existingroom')
-# def join_room(data):
-#     print("wow")
+@socketio.on('quiz_start')
+def quiz_start(data):
+    quiz = data['quiz']
+    roomId = data['msg']
+    # print(data) 
+    emit(200)   
+    mongo.db.Rooms.find_one_and_update({'roomId': roomId },{'$set': {'quiz' : quiz}})
+
+
+@socketio.on('existing_room')
+def existing_room(data):
+    print(data)
+    newUser = data['username']
+    lobby = data['lobbyCode']
+    roomData = mongo.db.Rooms.find_one({'roomId': lobby})
+    users = roomData['users']
+    quiz = roomData['quiz']
+    users.append({'username': newUser, 'quizSubmitted': 'false'})
+    # print(users)
+    newList = [lobby] + users
+    # print(newList)
+    mongo.db.Rooms.find_one_and_update({'roomId': lobby}, { '$set' : {'users': users}})
+    emit({users: users })
 
 
 @socketio.on('leave')
