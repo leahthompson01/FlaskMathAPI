@@ -181,16 +181,15 @@ def existing_room(data):
     users.append({'username': newUser, 'quizSubmitted': 'false'})
     # print(users)
     newList = [lobby] + users
-    # print(newList)
+    join_room(lobby)
+    send(str(newUser) + ' has joined the room', to=lobby)
     mongo.db.Rooms.find_one_and_update({'roomId': lobby}, { '$set' : {'users': users}})
-    emit({users: users })
-
 
 @socketio.on('leave')
 def on_leave(data):
     username = data['username']
     room = data['room']
-    print(str(username) + ' is leaving room ' + str(room))
+    # print(str(username) + ' is leaving room ' + str(room))
     leave_room(room)
     send(str(username) + ' has left the room.', to=room)
 
