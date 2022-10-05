@@ -8,12 +8,11 @@ from random_word import Wordnik
 from flask_cors import CORS
 from flask_pymongo import PyMongo
 from dotenv import dotenv_values
+from collections import MutableMapping
 import certifi
 ca = certifi.where()
-print(ca)
 
 config = dotenv_values(".env")
-print(config)
 # this instance is our WSGI app
 app = flask.Flask("__name__")
 app.config['MONGO_URI'] = config['DB_CONNECTION']
@@ -38,7 +37,7 @@ class Question:
             self.operand = "-"
         if (operator == 'multiplication'):
             self.rightAnswer = num1 * num2
-            print(self.rightAnswer)
+            # print(self.rightAnswer)
             self.operand = "•"
         if (operator == 'division'):
             num2 = makeNum2Pos(num2)
@@ -158,31 +157,32 @@ def connect():
 
 @socketio.on('create_room')
 def create_room(data):
-    # print(data)
+    print(data)
     wordnik = Wordnik()
     words = wordnik.get_random_words(
         hasDictionaryDef="true", maxLength=8, limit=2)
-    # print(words)
     user = data['username']
     operation = data['operation']
     room = '-'.join(words)
-    # print(room)
-    # shortenedRoom = room[:6]
-    # print(shortenedRoom)
+    print(room)
     join_room(room)
-    send(str(user) + ' ' + str(room),  to=room)
+    send(str(user) + ' ' + str(room))
     mongo.db.Rooms.insert_one({'roomId': room, 'operation': operation, 'users': [
-                              {"username": user, "quizSubmitted": "false"}], 'quiz': {}})
+                              {"username": user, "quizSubmitted": "false", "score": 0}], 'quiz': {}})
 
 
 @socketio.on('quiz_start')
 def quiz_start(data):
+    print(data)
     quiz = data['quiz']
     roomId = data['msg']
-    # print(data)
-    emit(200)
-    mongo.db.Rooms.find_one_and_update(
-        {'roomId': roomId}, {'$set': {'quiz': quiz}})
+    if (quiz[0]['question'] == ''):
+        emit('blank_quiz')
+    else:
+        print(data)
+        emit(200)
+        mongo.db.Rooms.find_one_and_update(
+            {'roomId': roomId}, {'$set': {'quiz': quiz}})
 
 
 @socketio.on('existing_room')
@@ -193,7 +193,7 @@ def existing_room(data):
     roomData = mongo.db.Rooms.find_one({'roomId': lobby})
     users = roomData['users']
     quiz = roomData['quiz']
-    users.append({'username': newUser, 'quizSubmitted': 'false'})
+    users.append({'username': newUser, 'quizSubmitted': 'false', "score": 0})
     # print(users)
     newList = [lobby] + users
     join_room(lobby)
@@ -204,17 +204,59 @@ def existing_room(data):
 
 @socketio.on('leave')
 def on_leave(data):
+    print(data)
     username = data['username']
     room = data['room']
-    # print(str(username) + ' is leaving room ' + str(room))
+    print(str(username) + ' is leaving room ' + str(room))
     leave_room(room)
+    users = mongo.db.Rooms.find_one({'roomId': room})['users']
+    filtered = list(filter(
+        lambda user: user['username'] != username, users))
+    print(filtered)
+    mongo.db.Rooms.find_one_and_update(
+        {'roomId': room}, {'$set': {'users': filtered}}
+    )
+    updatedUsers = mongo.db.Rooms.find_one({'roomId': room})['users']
+    if (len(updatedUsers) < 1):
+        mongo.db.Rooms.find_one_and_delete({'roomId': room})
     send(str(username) + ' has left the room.', to=room)
 
 
 @socketio.on('submit_quiz')
 def submit_quiz(data):
-    print(data)
-    emit()
+    # print(data)
+    user = data['username']
+    lobby = data['lobbyCode']
+    score = data['score']
+    # print(user, lobby, score)
+    users = mongo.db.Rooms.find_one({'roomId': lobby})['users']
+    print(users)
+    # specificUser = list(filter(lambda person: user.username == user, users))
+    # print(specificUser)
+    # [specificUser][0]['quizSubmitted'] = "true"
+    # [specificUser][0]['score'] = score
+    # print(specificUser)
+    otherUsers = list(filter(lambda person: person['username'] != user, users))
+    # print(otherUsers)
+    # newList = specificUser + otherUsers
+    # print(newList)
+    otherUsers.append(
+        {'username': user, "quizSubmitted": "true", "score": score})
+    mongo.db.Rooms.find_one_and_update(
+        {'roomId': lobby}, {'$set': {'users': otherUsers}})
+    updatedUsers = users = mongo.db.Rooms.find_one({'roomId': lobby})['users']
+    # print(updatedUsers)
+    submittedUsers = list(
+        filter(lambda person: person['quizSubmitted'] == "true", updatedUsers))
+    # print(submittedUsers)
+    if (len(submittedUsers) == len(updatedUsers)):
+        scoresList = []
+        for obj in submittedUsers:
+            scoresList.append([obj['username'], obj['score']])
+        print(scoresList)
+        emit('all_submit', scoresList, to=lobby)
+    else:
+        send('submitted')
 
 
 @socketio.on('disconnect')
