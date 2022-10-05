@@ -8,7 +8,7 @@ from random_word import Wordnik
 from flask_cors import CORS
 from flask_pymongo import PyMongo
 from dotenv import dotenv_values
-from collections import MutableMapping
+
 import certifi
 ca = certifi.where()
 
