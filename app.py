@@ -10,7 +10,7 @@ from flask_pymongo import PyMongo
 from dotenv import dotenv_values
 import certifi
 ca = certifi.where()
-print(ca)
+# print(ca)
 
 config = dotenv_values(".env")
 print(config)
@@ -144,9 +144,12 @@ def joinQuiz(lobbycode):
 
 @app.route("/users/<lobbyCode>")
 def allusers(lobbyCode):
-    roomData = roomData = mongo.db.Rooms.find_one({'roomId': lobbyCode})
-    users = roomData['users']
-    return users
+    if(lobbyCode == None):
+         print('received null as lobby Code')
+    else:
+        roomData = roomData = mongo.db.Rooms.find_one({'roomId': lobbyCode})
+        users = roomData['users']
+        return users
 
 
 @socketio.on('connect')
