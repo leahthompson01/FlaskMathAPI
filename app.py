@@ -148,6 +148,12 @@ def allusers(lobbyCode):
     return users
 
 
+@app.route("/results/<lobbyCode>")
+def showResults(lobbyCode):
+    roomData = mongo.db.Rooms.find_one({'roomId': lobbyCode})['users']
+    return roomData
+
+
 @socketio.on('connect')
 def connect():
     print('HI you have connected with sid ' + str(request.sid))
@@ -248,13 +254,15 @@ def submit_quiz(data):
     # print(updatedUsers)
     submittedUsers = list(
         filter(lambda person: person['quizSubmitted'] == "true", updatedUsers))
-    # print(submittedUsers)
+    print(submittedUsers)
+    print(updatedUsers)
     if (len(submittedUsers) == len(updatedUsers)):
         scoresList = []
         for obj in submittedUsers:
             scoresList.append([obj['username'], obj['score']])
         print(scoresList)
-        emit('all_submit', scoresList, to=lobby)
+        # emit('all_submit', scoresList, to=lobby)
+        emit('all_submit', to=lobby)
     else:
         send('submitted')
 
